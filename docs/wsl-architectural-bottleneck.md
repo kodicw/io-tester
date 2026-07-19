@@ -34,6 +34,18 @@ The Windows machine in this comparison has **2× the CPU clock speed**, **2× th
 
 The bottleneck is not CPU speed, RAM, or disk throughput. It is per-operation overhead: filesystem translation between Linux and Windows, mandatory antivirus scanning, and double-flushing writes through both a virtual and physical disk. A faster CPU executes instructions quicker but cannot eliminate the translation. More cores cannot parallelize a serialized filesystem path. A faster SSD cannot skip the cross-OS conversion sitting above it.
 
+
+## WINE proves the point in reverse
+
+If translation layers were inherently slow, WINE would be unusable. WINE translates Windows API calls to Linux syscalls — the exact opposite direction of WSL2. Yet WINE runs Windows applications on Linux with remarkably low overhead, often near-native speed.
+
+The difference is what sits underneath the translation:
+
+- **WINE (Windows→Linux):** Calls land on the Linux kernel, ext4/btrfs, and a fast, minimal I/O path. The foundation is efficient, so the translation cost is small.
+- **WSL2 (Linux→Windows):** Calls land on the Windows kernel, NTFS, Hyper-V, Windows Defender, and a `.vhdx` virtual disk. The foundation is heavy, so the translation cost is enormous.
+
+The translation itself is not the problem. The problem is that Windows is a slower foundation for I/O-heavy workloads. WINE is fast because Linux is fast underneath it. WSL2 is slow because Windows is slow underneath it.
+
 ## The bottom line
 
-This is not "I prefer Linux." This is not "VMs are slow." ChromeOS uses a VM too, and it is faster. The problem is specifically that WSL2 forces every I/O operation through a Windows-to-Linux translation layer. That translation adds a measurable, consistent tax to every file read, write, stat, and process spawn a developer performs. It compounds across thousands of operations per hour into minutes of lost time per day and weeks per year. It is a structural limitation of running Linux on top of a Windows host, and it cannot be configured away.
+This is not "I prefer Linux." This is not "VMs are slow." ChromeOS uses a VM too, and it is faster. WINE uses a translation layer too, and it is faster. The problem is specifically that WSL2 forces every I/O operation down through a Windows kernel and NTFS filesystem. That adds a measurable, consistent tax to every file read, write, stat, and process spawn a developer performs. It compounds across thousands of operations per hour into minutes of lost time per day and weeks per year. It is a structural limitation of running Linux on top of a Windows host, and it cannot be configured away.
