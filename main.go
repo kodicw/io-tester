@@ -140,32 +140,94 @@ func main() {
 	depth := 6
 	dir := ""
 	printHelp := false
+	presetName := ""
 
+	// Presets: named bundles of defaults for common test scenarios.
+	// Applied first, then individual flags can override them.
+	presets := map[string]func(){
+		"quick": func() {
+			fileCount = 100
+			fileSize = 64
+			workers = 1
+			depth = 4
+		},
+		"concurrent": func() {
+			fileCount = 10000
+			fileSize = 256
+			workers = 8
+			depth = 6
+			if dir == "" {
+				dir = "test"
+			}
+		},
+		"dev": func() {
+			fileCount = 5000
+			fileSize = 256
+			workers = 4
+			depth = 6
+		},
+		"heavy": func() {
+			fileCount = 50000
+			fileSize = 1024
+			workers = 16
+			depth = 8
+			if dir == "" {
+				dir = "test"
+			}
+		},
+	}
+
+	// First pass: capture filter, help, and preset.
 	for i := 0; i < len(args); i++ {
 		switch {
 		case args[i] == "--all" || args[i] == "all":
 			filter = ""
 		case args[i] == "--help" || args[i] == "-h":
 			printHelp = true
-		case strings.HasPrefix(args[i], "--"):
+		case strings.HasPrefix(args[i], "--preset"):
 			flag, val := parseFlag(args, &i)
-			switch flag {
-			case "--files":
-				fileCount = mustAtoi(val, 5000)
-			case "--size":
-				fileSize = mustAtoi(val, 256)
-			case "--workers":
-				workers = mustAtoi(val, 4)
-			case "--depth":
-				depth = mustAtoi(val, 6)
-			case "--dir":
-				dir = val
-			default:
-				fmt.Fprintf(os.Stderr, "unknown flag: %s\n", flag)
-				os.Exit(1)
+			if flag == "--preset" {
+				presetName = val
 			}
 		default:
-			filter = args[i]
+			if !strings.HasPrefix(args[i], "--") {
+				filter = args[i]
+			}
+		}
+	}
+
+	// Apply preset defaults.
+	if presetName != "" {
+		if p, ok := presets[presetName]; ok {
+			p()
+		} else {
+			fmt.Fprintf(os.Stderr, "unknown preset: %s (try quick, concurrent, dev, heavy)\n", presetName)
+			os.Exit(1)
+		}
+	}
+
+	// Second pass: explicit flags override preset values.
+	for i := 0; i < len(args); i++ {
+		if !strings.HasPrefix(args[i], "--") {
+			continue
+		}
+		flag, val := parseFlag(args, &i)
+		switch flag {
+		case "--files":
+			fileCount = mustAtoi(val, fileCount)
+		case "--size":
+			fileSize = mustAtoi(val, fileSize)
+		case "--workers":
+			workers = mustAtoi(val, workers)
+		case "--depth":
+			depth = mustAtoi(val, depth)
+		case "--dir":
+			dir = val
+		case "--preset", "--all", "--help", "-h":
+			// handled in first pass
+		default:
+			fmt.Fprintf(os.Stderr, "unknown flag: %s\n", flag)
+			os.Exit(1)
 		}
 	}
 
@@ -806,7 +868,7 @@ func printUsage(benchmarks []struct {
 	name string
 	fn   func(string) BenchResult
 }) {
-	fmt.Printf("io-tester — filesystem I/O benchmark for dev workloads\n\n")
+	fmt.Printf("io-tester — dev-workload performance benchmark\n\n")
 	fmt.Printf("Usage:\n")
 	fmt.Printf("  nix run . [benchmark] [flags]\n\n")
 	fmt.Printf("Go-based benchmarks (omit to run all):\n")
@@ -824,12 +886,21 @@ func printUsage(benchmarks []struct {
 	fmt.Printf("  --workers=N     Concurrent workers (default: 4)\n")
 	fmt.Printf("  --depth=N       Directory tree depth (default: 6)\n")
 	fmt.Printf("  --dir=PATH      Working directory (default: temp dir)\n")
+	fmt.Printf("  --preset=NAME   Use a preset (quick, concurrent, dev, heavy)\n")
 	fmt.Printf("  --all           Run all Go benchmarks\n")
 	fmt.Printf("  --help, -h      Show this help\n\n")
+	fmt.Printf("Presets:\n")
+	fmt.Printf("  quick      100 files, 64B, 1 worker, depth 4 (fast smoke test)\n")
+	fmt.Printf("  concurrent 10k files, 256B, 8 workers, dir=test\n")
+	fmt.Printf("  dev        5k files, 256B, 4 workers (default)\n")
+	fmt.Printf("  heavy      50k files, 1KB, 16 workers, dir=test\n\n")
 	fmt.Printf("Examples:\n")
 	fmt.Printf("  nix run .                    # run all Go benchmarks\n")
+	fmt.Printf("  nix run . -- --preset=quick\n")
+	fmt.Printf("  nix run . -- concurrent_write --preset=concurrent\n")
+	fmt.Printf("  nix run . -- build_c --preset=heavy --dir=/fast-ssd/build\n")
+	fmt.Printf("  nix run . -- --files=10000 --workers=8 --dir=test\n")
 	fmt.Printf("  nix run .#fs_mark            # run fs_mark\n")
-	fmt.Printf("  nix run . -- --files=10000   # Go bench with 10k files\n")
 	fmt.Printf("  nix run .#all-tools          # run all external tools\n")
 }
 

@@ -36,6 +36,28 @@ CC=gcc nix run . -- build_c --files=200
 CC=clang nix run . -- build_incremental --files=500
 ```
 
+## Presets
+
+Presets are named bundles of defaults. Individual flags still override them.
+
+| Preset | Files | Size | Workers | Depth | Dir |
+|----------|------|------|---------|-------|-----|
+| `quick` | 100 | 64B | 1 | 4 | temp |
+| `concurrent` | 10,000 | 256B | 8 | 6 | `test` |
+| `dev` | 5,000 | 256B | 4 | 6 | temp |
+| `heavy` | 50,000 | 1KB | 16 | 8 | `test` |
+
+```bash
+# Fast smoke test
+nix run . -- --preset=quick
+
+# Heavy concurrent write test
+nix run . -- concurrent_write --preset=concurrent
+
+# Heavy build on a fast SSD
+nix run . -- build_c --preset=heavy --dir=/fast-ssd/build
+```
+
 ## External tools (also available)
 
 Uses existing battle-tested tools from nixpkgs:
