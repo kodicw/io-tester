@@ -160,15 +160,21 @@ The benchmark runs fit easily in memory. The issue is not that the machine is ru
 
 ### The cost vs performance analogy
 
-Imagine two restaurants.
+Imagine two cars in a race across town.
 
-One is a small food truck. The equipment is modest. The menu is simple. You order, and the food is ready in two minutes.
+One is a modest hatchback. Small engine, basic interior, nothing flashy. But the road ahead is clear, every light is green, and the highway on-ramp is right there.
 
-The other is a flagship restaurant with a Michelin-star chef, a $100,000 kitchen, and imported ingredients. You order the same simple dish. It takes forty minutes to arrive because every ingredient has to be signed out of a locked pantry, inspected by a manager, carried through three kitchens, and approved by the front desk before it reaches your plate.
+The other is a sports car with twice the horsepower, twice as many cylinders, a dedicated racing computer, and a bigger fuel tank. On paper it is superior in every way. But it is parked inside a gated compound. Every time the driver wants to move:
 
-The flagship restaurant spent far more money. The chef is more talented. The equipment is better. But for getting lunch on the table, it is slower. The extra budget did not buy speed. It bought better specs on a spreadsheet.
+1. Radio the gatehouse for permission to leave
+2. Wait for a security escort to unlock the inner gate
+3. Follow the escort through a one-lane service road
+4. Stop at the outer checkpoint for an inspection
+5. Finally reach the public road
 
-The Windows hardware is the flagship restaurant. The WSL2 stack is the locked pantry and the three-kitchen journey. The food truck is the Chromebook.
+The sports car has **2× the clock speed**, **2× the cores**, a **dedicated GPU**, and **more RAM**. Those are real advantages — for a drag strip. But this is not a drag strip. This is city driving: thousands of short trips, constant stopping and starting, quick errands one after another. The hatchback finishes every errand faster because nothing stands between the engine and the road.
+
+The benchmark results tell the same story. The Windows machine has roughly twice the CPU, twice the cores, and a real GPU. The Chromebook still writes files **7–12× faster**, spawns processes **4× faster**, and compiles **28% faster**. The specs lost to the architecture.
 
 ---
 
