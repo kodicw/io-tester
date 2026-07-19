@@ -157,6 +157,34 @@ Windows and Linux have different ideas about file permissions, case sensitivity,
 
 ---
 
+## Why faster hardware won't fix it
+
+The Windows machine already has better hardware. Adding more of it does not remove the places where time is lost.
+
+### A faster CPU does not remove translation
+
+Most of the slowdown is not from the CPU working slowly. It is from the CPU *waiting*: waiting for the VM boundary, waiting for NTFS, waiting for the `.vhdx` driver, waiting for Windows Defender to scan a file. A faster CPU can execute instructions quicker, but it cannot make a round-trip through three software layers happen in zero time.
+
+### More cores do not help
+
+Many of the operations in the benchmark table are serialized by the filesystem and the VM. A file create on NTFS has to be ordered. A `fsync` has to wait for the disk. A process creation has to go through the Hyper-V path one at a time. Throwing 16 cores or 32 cores at the problem does not parallelize the bottleneck.
+
+### A faster SSD only helps part of the problem
+
+A faster NVMe drive can push more bytes per second. But the table above is not measuring bulk throughput. It is measuring thousands of tiny operations. Each operation has a fixed cost that is independent of SSD speed: a syscall, a context switch, a VM exit, an antivirus scan, a metadata update. A faster drive shrinks the time spent moving bytes, but the per-operation overhead remains.
+
+### More RAM does not help
+
+The benchmark runs fit easily in memory. The issue is not that the machine is running out of RAM. The issue is that every file operation has to be acknowledged, flushed, translated, and checked by multiple layers. More RAM does not remove those layers.
+
+### The traffic analogy
+
+Imagine two cars on the same road. One is a modest sedan on an empty highway. The other is a sports car stuck in gridlocked traffic. The sports car has more horsepower, better suspension, and a higher top speed. It will still lose the race because the road is the bottleneck, not the car.
+
+In the same way, the Windows hardware is the sports car. The WSL2 stack is the traffic. A faster sports car does not make the traffic move.
+
+---
+
 ## What the slowdown can cost in time
 
 A 2022 developer survey found that the average build takes about 20 minutes, and developers spend roughly **57 minutes per day** just waiting for builds to finish. Another 2025 survey reported that teams spend an average of **32 hours per day** running builds across their engineering organizations.
