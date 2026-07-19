@@ -19,9 +19,17 @@
           pname = "io-tester";
           version = "0.1.0";
           src = ./.;
-          vendorHash = null; # no external dependencies
+          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          buildInputs = [ pkgs.fastfetch ];
 
           ldflags = [ "-s" "-w" ];
+
+          postInstall = ''
+            wrapProgram $out/bin/io-tester \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fastfetch ]}
+          '';
 
           meta = with pkgs.lib; {
             description = "Filesystem I/O benchmark for dev workloads (small files)";

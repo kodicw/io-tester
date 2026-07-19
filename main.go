@@ -5,15 +5,78 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
+// style helpers for charmbracelet/lipgloss
+var (
+	headerStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7DF9FF")).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#5A5A5A")).
+		Padding(0, 1)
+
+	labelStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF6B6B"))
+
+	valueStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F0F0F0"))
+
+	boxStyle = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#4A4A4A")).
+		Padding(0, 1)
+)
+
+// printSystemInfo shows hardware & OS details via fastfetch, styled by lipgloss.
+func printSystemInfo() {
+	cmd := exec.Command("fastfetch",
+		"--logo", "none",
+		"--structure", "Title,OS,Host,Kernel,CPU,GPU,Memory,Disk,WM,DE,Shell,Terminal",
+		"--color-keys", "cyan",
+		"--color-title", "white",
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		// fastfetch may not be installed; silently skip or show minimal fallback
+		return
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	var rows []string
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			rows = append(rows, valueStyle.Render(line))
+			continue
+		}
+		label := labelStyle.Render(strings.TrimSpace(parts[0]) + ":")
+		value := valueStyle.Render(strings.TrimSpace(parts[1]))
+		rows = append(rows, label+" "+value)
+	}
+
+	body := strings.Join(rows, "\n")
+	title := headerStyle.Render("System Info")
+	fmt.Println(boxStyle.Render(title + "\n" + body))
+	fmt.Println()
+}
+
 func main() {
+	printSystemInfo()
+
 	benchmarks := []struct {
 		name string
 		fn   func(tmp string) BenchResult
