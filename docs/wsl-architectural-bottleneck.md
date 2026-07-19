@@ -2,21 +2,18 @@
 
 ## The problem
 
-Linux development on Windows via WSL2 is slower than Linux on bare metal — not because of the developer's workflow, but because of how WSL2 is built.
+Linux development on Windows via WSL2 is slower than other Linux-in-a-VM setups — not because it uses a VM, but because of **what the VM sits on top of**.
 
-WSL2 runs a real Linux kernel, but it runs inside a Hyper-V virtual machine. Every file your code touches lives inside a `.vhdx` virtual disk, which itself lives on Windows NTFS. Every file operation — every save, every read, every `git status`, every `npm install` — has to travel through six layers:
+Both WSL2 and ChromeOS Crostini run Linux inside a virtual machine. That is not the issue. The issue is that WSL2's VM is hosted by a **Windows kernel running NTFS**, while Crostini's VM is hosted by a **Linux kernel running btrfs**. Every file operation in WSL2 has to cross an OS boundary — Linux talking to Windows talking to NTFS — and that translation is where the time goes.
 
 ```
-Your code
-  → Linux kernel
-    → WSL2 utility VM
-      → Hyper-V hypervisor
-        → Windows kernel (NTFS)
-          → .vhdx virtual disk
-            → SSD
+WSL2:     Linux app → Linux kernel → Hyper-V → Windows kernel → NTFS → .vhdx → SSD
+Crostini: Linux app → Linux kernel → crosvm  → Linux kernel   → btrfs image  → SSD
 ```
 
-This is not a matter of preference, configuration, or tooling choice. It is a fixed cost baked into the architecture. No amount of hardware upgrades, settings changes, or workflow adjustments removes these layers.
+Same concept. Same number of layers. But one path is Linux talking to Linux, and the other is Linux talking to Windows. The Windows path has to translate filesystem semantics (permissions, case sensitivity, special files), flush writes through both a virtual disk and a real NTFS disk, and pass every file through Windows Defender. None of that exists in the Linux-to-Linux path.
+
+This is not a matter of preference, configuration, or tooling choice. It is a fixed cost baked into the architecture. No amount of hardware upgrades, settings changes, or workflow adjustments removes the translation layer.
 
 ## What the data shows
 
@@ -35,8 +32,8 @@ The Windows machine in this comparison has **2× the CPU clock speed**, **2× th
 
 ## Why hardware won't fix it
 
-The bottleneck is not CPU speed, RAM, or disk throughput. It is per-operation overhead: VM boundary crossings, filesystem translation between Linux and Windows, mandatory antivirus scanning, and double-flushing writes through both a virtual and physical disk. A faster CPU executes instructions quicker but cannot eliminate the round-trips. More cores cannot parallelize a serialized filesystem path. A faster SSD cannot remove the six software layers above it.
+The bottleneck is not CPU speed, RAM, or disk throughput. It is per-operation overhead: filesystem translation between Linux and Windows, mandatory antivirus scanning, and double-flushing writes through both a virtual and physical disk. A faster CPU executes instructions quicker but cannot eliminate the translation. More cores cannot parallelize a serialized filesystem path. A faster SSD cannot skip the cross-OS conversion sitting above it.
 
 ## The bottom line
 
-This is not "I prefer Linux." This is: the architecture of WSL2 adds a measurable, consistent tax to every I/O operation a developer performs. That tax compounds across thousands of operations per hour into minutes of lost time per day and weeks per year. It is a structural limitation of running Linux inside a Windows VM, and it cannot be configured away.
+This is not "I prefer Linux." This is not "VMs are slow." ChromeOS uses a VM too, and it is faster. The problem is specifically that WSL2 forces every I/O operation through a Windows-to-Linux translation layer. That translation adds a measurable, consistent tax to every file read, write, stat, and process spawn a developer performs. It compounds across thousands of operations per hour into minutes of lost time per day and weeks per year. It is a structural limitation of running Linux on top of a Windows host, and it cannot be configured away.
