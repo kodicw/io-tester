@@ -149,7 +149,7 @@ Windows and Linux have different ideas about file permissions, case sensitivity,
 
 ## Why faster hardware won't fix it
 
-The Windows machine already has better hardware. Adding more of it does not remove the places where time is lost.
+The Windows machine already has better hardware. Adding more of it does not remove the places where time is lost. You can put lipstick on a pig, but it is still a pig. Upgrading the CPU, doubling the RAM, and swapping in a faster SSD is lipstick. The pig is the six-layer software stack sitting between your code and the disk. No amount of premium hardware changes the fact that every file operation has to cross a VM boundary, pass through a Windows filesystem, survive an antivirus scan, and flush a virtual disk. A faster pig is still a pig.
 
 ### A faster CPU does not remove translation
 
