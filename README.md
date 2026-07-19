@@ -58,6 +58,28 @@ nix run . -- concurrent_write --preset=concurrent
 nix run . -- build_c --preset=heavy --dir=/fast-ssd/build
 ```
 
+## Save & compare runs
+
+Save a result to JSON:
+
+```bash
+nix run github:kodicw/io-tester -- --preset=quick --save=wsl.json
+```
+
+Then compare another run against it:
+
+```bash
+nix run github:kodicw/io-tester -- --preset=quick --save=crostini.json --compare=wsl.json
+```
+
+Or compare two saved files directly:
+
+```bash
+nix run github:kodicw/io-tester -- compare wsl.json crostini.json
+```
+
+The comparison shows each benchmark's baseline ops/sec, current ops/sec, and the percentage delta.
+
 ## External tools (also available)
 
 Uses existing battle-tested tools from nixpkgs:

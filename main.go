@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -38,10 +39,47 @@ var (
 		Bold(true).
 		Foreground(lipgloss.Color("#7DF9FF")).
 		Underline(true)
+
+	fasterStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#50FA7B"))
+
+	slowerStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF5555"))
+
+	neutralStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F0F0F0"))
 )
 
+// RunResult is the JSON-serializable record of a benchmark run.
+type RunResult struct {
+	Timestamp  string                `json:"timestamp"`
+	SystemInfo map[string]string     `json:"system_info"`
+	Params     RunParams             `json:"params"`
+	Benchmarks []BenchmarkRecord     `json:"benchmarks"`
+}
+
+type RunParams struct {
+	Files   int    `json:"files"`
+	Size    int    `json:"size"`
+	Workers int    `json:"workers"`
+	Depth   int    `json:"depth"`
+	Dir     string `json:"dir"`
+}
+
+type BenchmarkRecord struct {
+	Name    string  `json:"name"`
+	Ops     int     `json:"ops"`
+	OpsPerSec float64 `json:"ops_per_sec"`
+	MBPerSec  float64 `json:"mb_per_sec"`
+	LatencyNs int64   `json:"latency_ns"`
+}
+
 // printSystemInfo shows hardware & OS details via fastfetch, styled by lipgloss.
-func printSystemInfo() {
+// Returns a map of key/value pairs for JSON serialization.
+func printSystemInfo() map[string]string {
+	info := map[string]string{}
 	cmd := exec.Command("fastfetch",
 		"--logo", "none",
 		"--structure", "Title:OS:Host:Kernel:CPU:GPU:Memory:Disk",
@@ -51,10 +89,13 @@ func printSystemInfo() {
 	out, err := cmd.Output()
 	if err != nil {
 		// fastfetch may not be installed; print a minimal fallback
-		fallback := fmt.Sprintf("Host: %s\nOS:   %s\nArch: %s", mustHostname(), mustOS(), mustArch())
+		info["Host"] = mustHostname()
+		info["OS"] = mustOS()
+		info["Arch"] = mustArch()
+		fallback := fmt.Sprintf("Host: %s\nOS:   %s\nArch: %s", info["Host"], info["OS"], info["Arch"])
 		fmt.Println(boxStyle.Render(boxTitleStyle.Render("System Info") + "\n" + fallback))
 		fmt.Println()
-		return
+		return info
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -66,11 +107,15 @@ func printSystemInfo() {
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
 			// Title line (e.g., "user@hostname") gets its own emphasis
+			info["Title"] = strings.TrimSpace(parts[0])
 			rows = append(rows, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7DF9FF")).Render(line))
 			continue
 		}
-		label := labelStyle.Render(strings.TrimSpace(parts[0]) + ":")
-		value := valueStyle.Render(strings.TrimSpace(parts[1]))
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		info[key] = val
+		label := labelStyle.Render(key + ":")
+		value := valueStyle.Render(val)
 		rows = append(rows, label+" "+value)
 	}
 
@@ -78,6 +123,7 @@ func printSystemInfo() {
 	title := boxTitleStyle.Render("System Info")
 	fmt.Println(boxStyle.Render(title + "\n" + body))
 	fmt.Println()
+	return info
 }
 
 func mustHostname() string {
@@ -111,7 +157,15 @@ func mustArch() string {
 }
 
 func main() {
-	printSystemInfo()
+	if len(os.Args) > 1 && os.Args[1] == "compare" {
+		if err := runCompare(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "compare error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	sysInfo := printSystemInfo()
 
 	benchmarks := []struct {
 		name string
@@ -141,6 +195,8 @@ func main() {
 	dir := ""
 	printHelp := false
 	presetName := ""
+	saveFile := ""
+	compareFile := ""
 
 	// Presets: named bundles of defaults for common test scenarios.
 	// Applied first, then individual flags can override them.
@@ -189,6 +245,16 @@ func main() {
 			if flag == "--preset" {
 				presetName = val
 			}
+		case strings.HasPrefix(args[i], "--save"):
+			flag, val := parseFlag(args, &i)
+			if flag == "--save" {
+				saveFile = val
+			}
+		case strings.HasPrefix(args[i], "--compare"):
+			flag, val := parseFlag(args, &i)
+			if flag == "--compare" {
+				compareFile = val
+			}
 		default:
 			if !strings.HasPrefix(args[i], "--") {
 				filter = args[i]
@@ -223,6 +289,10 @@ func main() {
 			depth = mustAtoi(val, depth)
 		case "--dir":
 			dir = val
+		case "--save":
+			saveFile = val
+		case "--compare":
+			compareFile = val
 		case "--preset", "--all", "--help", "-h":
 			// handled in first pass
 		default:
@@ -313,6 +383,41 @@ func main() {
 	fmt.Println(strings.Repeat("─", 70))
 	fmt.Printf("Total: %d ops across %d benchmarks\n",
 		sumOps(results), len(results))
+
+	records := make([]BenchmarkRecord, len(results))
+	for i, r := range results {
+		records[i] = BenchmarkRecord{
+			Name:      r.name,
+			Ops:       r.result.Ops,
+			OpsPerSec: r.result.OpsPerSec,
+			MBPerSec:  r.result.MBPerSec,
+			LatencyNs: r.result.Latency.Nanoseconds(),
+		}
+	}
+	run := RunResult{
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
+		SystemInfo: sysInfo,
+		Params: RunParams{
+			Files:   fileCount,
+			Size:    fileSize,
+			Workers: workers,
+			Depth:   depth,
+			Dir:     dir,
+		},
+		Benchmarks: records,
+	}
+
+	if saveFile != "" {
+		if err := saveRunResult(saveFile, run); err != nil {
+			fmt.Fprintf(os.Stderr, "save error: %v\n", err)
+		}
+	}
+
+	if compareFile != "" {
+		if err := compareRunResult(compareFile, run); err != nil {
+			fmt.Fprintf(os.Stderr, "compare error: %v\n", err)
+		}
+	}
 }
 
 type benchItem struct {
@@ -900,6 +1005,9 @@ func printUsage(benchmarks []struct {
 	fmt.Printf("  nix run . -- concurrent_write --preset=concurrent\n")
 	fmt.Printf("  nix run . -- build_c --preset=heavy --dir=/fast-ssd/build\n")
 	fmt.Printf("  nix run . -- --files=10000 --workers=8 --dir=test\n")
+	fmt.Printf("  nix run . -- --save=wsl.json\n")
+	fmt.Printf("  nix run . -- --compare=wsl.json\n")
+	fmt.Printf("  nix run . -- compare wsl.json crostini.json\n")
 	fmt.Printf("  nix run .#fs_mark            # run fs_mark\n")
 	fmt.Printf("  nix run .#all-tools          # run all external tools\n")
 }
@@ -909,4 +1017,108 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// ── Save / Compare ────────────────────────────────────────────
+
+func saveRunResult(path string, run RunResult) error {
+	data, err := json.MarshalIndent(run, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func compareRunResult(path string, current RunResult) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var baseline RunResult
+	if err := json.Unmarshal(data, &baseline); err != nil {
+		return err
+	}
+
+	fmt.Println()
+	fmt.Println(sectionStyle.Render("Comparison vs baseline"))
+	fmt.Printf("Baseline: %s (%s)\n", path, baseline.Timestamp)
+	fmt.Printf("Current:  %s\n", current.Timestamp)
+	fmt.Println(strings.Repeat("─", 70))
+	fmt.Printf("%-20s %12s %12s %12s\n", "Benchmark", "Baseline", "Current", "Ratio")
+	fmt.Println(strings.Repeat("─", 70))
+
+	baselineMap := make(map[string]BenchmarkRecord)
+	for _, b := range baseline.Benchmarks {
+		baselineMap[b.Name] = b
+	}
+
+	currentMap := make(map[string]BenchmarkRecord)
+	for _, b := range current.Benchmarks {
+		currentMap[b.Name] = b
+	}
+
+	var names []string
+	for name := range currentMap {
+		names = append(names, name)
+	}
+	for name := range baselineMap {
+		if _, ok := currentMap[name]; !ok {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		base, hasBase := baselineMap[name]
+		cur, hasCur := currentMap[name]
+		if !hasBase {
+			fmt.Printf("%-20s %12s %12.1f %12s\n", name, "—", cur.OpsPerSec, "new")
+			continue
+		}
+		if !hasCur {
+			fmt.Printf("%-20s %12.1f %12s %12s\n", name, base.OpsPerSec, "—", "missing")
+			continue
+		}
+		var ratio float64
+		if base.OpsPerSec > 0 {
+			ratio = cur.OpsPerSec / base.OpsPerSec
+		}
+		style := neutralStyle
+		desc := "="
+		if ratio > 1.05 {
+			style = fasterStyle
+			desc = fmt.Sprintf("+%.1f%%", (ratio-1)*100)
+		} else if ratio < 0.95 {
+			style = slowerStyle
+			desc = fmt.Sprintf("-%.1f%%", (1-ratio)*100)
+		}
+		fmt.Printf("%-20s %12.1f %12.1f %s\n",
+			name, base.OpsPerSec, cur.OpsPerSec, style.Render(fmt.Sprintf("%12s", desc)))
+	}
+	fmt.Println(strings.Repeat("─", 70))
+	return nil
+}
+
+// runCompare is the standalone `compare file1 file2` subcommand.
+func runCompare(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: compare <baseline.json> <current.json>")
+	}
+	data1, err := os.ReadFile(args[0])
+	if err != nil {
+		return err
+	}
+	data2, err := os.ReadFile(args[1])
+	if err != nil {
+		return err
+	}
+	var baseline, current RunResult
+	if err := json.Unmarshal(data1, &baseline); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data2, &current); err != nil {
+		return err
+	}
+	// Swap labels so the first file is shown as baseline.
+	return compareRunResult(args[0], current)
 }
