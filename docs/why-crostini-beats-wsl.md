@@ -1,14 +1,14 @@
-# Why a low-end Chromebook beats a powerful Windows laptop for dev work
+# WSL2 vs Crostini: a dev-workload comparison
 
 > A human-friendly explanation of the `io-tester` WSL vs Crostini results.
 
 ## The short version
 
-A **weaker Chromebook** can feel faster for coding than a **more powerful Windows laptop** because ChromeOS is designed *around* Linux, while Windows *hosts* Linux as an afterthought.
+A **weaker Chromebook** can feel faster for coding than a **more powerful Windows laptop** because ChromeOS is designed *around* Linux, while Windows *hosts* Linux on top of Windows.
 
-Both systems use a virtual machine to run Linux. But ChromeOS's VM is a lightweight, Linux-on-Linux design (`crosvm` on KVM), and its storage is a Linux-native filesystem (`btrfs`). Windows's WSL2 VM is a heavier Windows-on-Linux design, and your Linux files live inside a `.vhdx` file sitting on top of Windows NTFS.
+Both systems use a virtual machine to run Linux. ChromeOS's VM is a lightweight, Linux-on-Linux design (`crosvm` on KVM), and its storage is a Linux-native filesystem (`btrfs`). Windows's WSL2 VM is a Windows-managed design, and your Linux files live inside a `.vhdx` file sitting on top of Windows NTFS.
 
-So the Chromebook takes the direct route, while Windows makes Linux take the scenic route — through a translation layer on every single file operation.
+The Chromebook takes the direct route. Windows makes Linux take the scenic route — through a translation layer on every single file operation.
 
 It's not about raw horsepower. It's about how many roadblocks the operating system puts between your code and the hardware.
 
@@ -25,7 +25,7 @@ It's not about raw horsepower. It's about how many roadblocks the operating syst
 
 On paper, the Windows laptop should crush the Chromebook. It has a faster CPU, more RAM, and better graphics. But dev work isn't a single big task like rendering a video. Dev work is **thousands of tiny tasks** — open a file, read it, write it, check its size, create a process, compile a file, link it, delete it.
 
-For that kind of work, the Chromebook wins because the path is shorter and purpose-built for Linux.
+For that kind of work, the measured path is shorter on the Chromebook.
 
 ---
 
@@ -94,11 +94,11 @@ Both setups have a separate workshop. The Crostini one is just *designed* to be 
 | `process_spawn` | Running lots of short commands | 282/sec | 1,093/sec | Chromebook **4× faster** |
 | `build_c` | Compiling a small C project | 24.7/sec | 31.5/sec | Chromebook **28% faster** |
 
-The Windows machine has a CPU that is roughly **twice as fast** on paper, yet it loses on every single dev task. The only thing the Windows machine would definitely win at is something like gaming or video rendering — big, single jobs that don't need to cross the WSL2 boundary thousands of times.
+The Windows machine has a CPU that is roughly **twice as fast** on paper. The benchmark numbers above show it is slower on every measured dev task. Big, single jobs like gaming or video rendering — which don't cross the WSL2 boundary thousands of times — are the workloads where the faster hardware would likely show its advantage.
 
 ---
 
-## Why Windows loses
+## Where the time goes
 
 ### 1. The filesystem is double-wrapped
 
@@ -138,21 +138,28 @@ Windows and Linux have different ideas about file permissions, case sensitivity,
 
 ---
 
-## Why this is sad for Windows as a dev OS
+## What the slowdown can cost in time
 
-The problem is not that Windows can't run Linux. WSL2 is genuinely impressive engineering. The problem is that Windows is still a **Windows-first** operating system. Linux is a guest, not a native citizen.
+A 2022 developer survey found that the average build takes about 20 minutes, and developers spend roughly **57 minutes per day** just waiting for builds to finish. Another 2025 survey reported that teams spend an average of **32 hours per day** running builds across their engineering organizations.
 
-So every time you:
-- Save a file in VS Code
-- Run `npm install`
-- Compile a project
-- Run a test
-- Stage a file in git
+Those are industry averages, not necessarily the numbers in the table above. But they give a sense of scale. Dev work is mostly waiting: waiting for installs, waiting for compiles, waiting for tests, waiting for git. Every second of overhead on those operations multiplies across a day.
 
-...Windows adds a little tax. One tax is fine. A thousand taxes per second makes the whole machine feel sluggish.
+### A back-of-the-envelope example
 
-On a Chromebook, Linux is a first-class resident. ChromeOS was built to run a Linux container (Crostini) from the start. The VM, the storage layer, and the filesystem were all designed with Linux in mind. That's why a weaker machine can feel snappier for the kind of work developers actually do.
+The `io-tester` numbers above show a 28% slowdown in the `build_c` benchmark on WSL2 vs Crostini. If a developer's incremental build takes 2 minutes on Crostini, a 28% slowdown means roughly **34 seconds extra** per build.
+
+| Builds per day | Extra time per day | Over a 250-day year |
+|---|---:|---:|
+| 10 | ~6 minutes | ~25 hours |
+| 20 | ~11 minutes | ~47 hours |
+| 40 | ~23 minutes | ~95 hours |
+
+That is only the compile step. If you add in `npm install` (which creates tens of thousands of small files), `git status`, test runners, and other file-heavy tools, the extra overhead compounds. The `small_write` benchmark above is 12× slower on WSL2, and `process_spawn` is 4× slower. Those are the exact patterns package managers and build systems repeat thousands of times.
+
+Plugging the numbers in another way: a survey found that 98% of developers admit they waste time waiting for builds. If a Linux-native environment shaves even 10–15 minutes of wait time per day, that adds up to roughly **one to two weeks of engineering time per year** for one person. Across a team, it becomes months or years of lost time.
+
+These are rough estimates. The actual number depends on the project, the tools, the codebase size, and how often the developer builds, tests, and installs dependencies. The reader can do their own math.
 
 ---
 
-A Chromebook, despite the weaker specs, was built without the toll booths.
+The reader can decide which matters more: the paper specs on the box, or the number of roadblocks between the code and the hardware.
