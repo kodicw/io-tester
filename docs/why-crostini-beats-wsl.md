@@ -87,18 +87,18 @@ WSL2 runs a full Linux kernel, but it lives inside a utility VM managed by Hyper
 
 ### Crostini (Chromebook) = a prefab workshop in the driveway
 
-The workshop is a separate building, but it was built by the same company that built your house. The doors are the right size, the power outlets match, and the tools connect directly. You still have to walk across the driveway, but the path is short and smooth.
+It is a modest workshop. The tools are fine, not flashy. The door is right there, the power outlets match, and everything is where you expect it to be. You pay for the workbench, and the workbench is what you get.
 
-### WSL2 (Windows) = a workshop inside a shipping container on a flatbed truck
+### WSL2 (Windows) = a luxury workshop inside a shipping container on a flatbed truck
 
-You have a nicer workshop inside a shipping container. But the container is sitting on a flatbed truck that's driving on Windows roads. Every time you want a tool, you have to:
+You paid for a much nicer workshop. Better tools, bigger benches, more horsepower. But the whole thing is locked inside a shipping container that sits on a flatbed truck. Every time you need a screwdriver:
 
 1. Walk to the container door
 2. The truck driver radios the warehouse
-3. The warehouse finds the tool and loads it onto the truck
-4. You finally get the tool
+3. The warehouse finds the screwdriver and loads it onto the truck
+4. You finally get to use it
 
-Both setups have a separate workshop. The Crostini one is just *designed* to be a workshop from the start.
+The expensive equipment is real. You can see it through the window. But most of your day is spent waiting for the logistics, not doing the work. The extra money bought better specs on paper, not more finished projects.
 
 ---
 
