@@ -83,25 +83,6 @@ WSL2 runs a full Linux kernel, but it lives inside a utility VM managed by Hyper
 
 ---
 
-## The analogy: two workshops
-
-### Crostini (Chromebook) = a prefab workshop in the driveway
-
-It is a modest workshop. The tools are fine, not flashy. The door is right there, the power outlets match, and everything is where you expect it to be. You pay for the workbench, and the workbench is what you get.
-
-### WSL2 (Windows) = a luxury workshop inside a shipping container on a flatbed truck
-
-You paid for a much nicer workshop. Better tools, bigger benches, more horsepower. But the whole thing is locked inside a shipping container that sits on a flatbed truck. Every time you need a screwdriver:
-
-1. Walk to the container door
-2. The truck driver radios the warehouse
-3. The warehouse finds the screwdriver and loads it onto the truck
-4. You finally get to use it
-
-The expensive equipment is real. You can see it through the window. But most of your day is spent waiting for the logistics, not doing the work. The extra money bought better specs on paper, not more finished projects.
-
----
-
 ## What the numbers actually mean
 
 `io-tester` measures "how many small things can the computer do per second?" These are the same small things your code editor, compiler, and package manager do all day.
