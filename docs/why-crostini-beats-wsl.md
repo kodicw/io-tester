@@ -89,12 +89,21 @@ WSL2 runs a full Linux kernel, but it lives inside a utility VM managed by Hyper
 
 | Benchmark | What it simulates | Windows WSL | Chromebook | Real difference |
 |---|---|---:|---:|---|
-| `concurrent_write` | Many files written at once | 10,409/sec | 72,260/sec | Chromebook **7× faster** |
-| `small_write` | Saving lots of tiny source files | 4,649/sec | 56,056/sec | Chromebook **12× faster** |
-| `process_spawn` | Running lots of short commands | 282/sec | 1,093/sec | Chromebook **4× faster** |
-| `build_c` | Compiling a small C project | 24.7/sec | 31.5/sec | Chromebook **28% faster** |
+| `stat_batch` | Checking file metadata | 188,058/sec | 463,343/sec | Chromebook **2.5× faster** |
+| `append_log` | Appending to log files | 4,879/sec | 27,665/sec | Chromebook **5.7× faster** |
+| `small_read` | Reading tiny source files | 17,810/sec | 24,655/sec | Chromebook **38% faster** |
+| `delete_batch` | Removing many files at once | 9,539/sec | 13,456/sec | Chromebook **41% faster** |
+| `rename_batch` | Moving/renaming files | 4,201/sec | 8,992/sec | Chromebook **2.1× faster** |
+| `small_write` | Saving lots of tiny source files | 4,649/sec | 7,460/sec | Chromebook **60% faster** |
+| `mixed_rw` | Interleaved reads and writes | 5,998/sec | 4,267/sec | WSL **40% faster** |
+| `concurrent_write` | Many files written at once | 10,409/sec | 2,909/sec | WSL **3.6× faster** |
+| `deep_tree` | Creating nested directory trees | 7,241/sec | 2,851/sec | WSL **2.5× faster** |
+| `process_spawn` | Running lots of short commands | 282/sec | 1,098/sec | Chromebook **3.9× faster** |
+| `build_c` | Compiling a small C project | 24.7/sec | 34.1/sec | Chromebook **38% faster** |
+| `build_incremental` | Incremental recompile | 5.4/sec | 10.0/sec | Chromebook **85% faster** |
+| `symlink_batch` | Creating symbolic links | 1,217/sec | 0/sec | WSL only (unsupported on Crostini) |
 
-The Windows machine has a CPU that is roughly **twice as fast** on paper. The benchmark numbers above show it is slower on every measured dev task.
+The Windows machine has a CPU that is roughly **twice as fast** on paper. The Chromebook wins 9 of 12 comparable benchmarks — and wins the ones that matter most to dev workflows: `stat`, `spawn`, `build`, `write`, `read`.
 
 ---
 
@@ -174,7 +183,7 @@ The other is a sports car with twice the horsepower, twice as many cylinders, a 
 
 The sports car has **2× the clock speed**, **2× the cores**, a **dedicated GPU**, and **more RAM**. Those are real advantages — for a drag strip. But this is not a drag strip. This is city driving: thousands of short trips, constant stopping and starting, quick errands one after another. The hatchback finishes every errand faster because nothing stands between the engine and the road.
 
-The benchmark results tell the same story. The Windows machine has roughly twice the CPU, twice the cores, and a real GPU. The Chromebook still writes files **7–12× faster**, spawns processes **4× faster**, and compiles **28% faster**. The specs lost to the architecture.
+The benchmark results tell the same story. The Windows machine has roughly twice the CPU, twice the cores, and a real GPU. The Chromebook still checks files **2.5× faster**, appends logs **5.7× faster**, spawns processes **3.9× faster**, and compiles **38% faster**. The specs lost to the architecture.
 
 ---
 
@@ -186,15 +195,15 @@ Those are industry averages, not necessarily the numbers in the table above. But
 
 ### A back-of-the-envelope example
 
-The `io-tester` numbers above show a 28% slowdown in the `build_c` benchmark on WSL2 vs Crostini. If a developer's incremental build takes 2 minutes on Crostini, a 28% slowdown means roughly **34 seconds extra** per build.
+The `io-tester` numbers above show a 38% slowdown in the `build_c` benchmark on WSL2 vs Crostini. If a developer's incremental build takes 2 minutes on Crostini, a 38% slowdown means roughly **46 seconds extra** per build.
 
 | Builds per day | Extra time per day | Over a 250-day year |
 |---|---:|---:|
-| 10 | ~6 minutes | ~25 hours |
-| 20 | ~11 minutes | ~47 hours |
-| 40 | ~23 minutes | ~95 hours |
+| 10 | ~8 minutes | ~32 hours |
+| 20 | ~15 minutes | ~64 hours |
+| 40 | ~31 minutes | ~128 hours |
 
-That is only the compile step. If you add in `npm install` (which creates tens of thousands of small files), `git status`, test runners, and other file-heavy tools, the extra overhead compounds. The `small_write` benchmark above is 12× slower on WSL2, and `process_spawn` is 4× slower. Those are the exact patterns package managers and build systems repeat thousands of times.
+That is only the compile step. If you add in `npm install` (which creates tens of thousands of small files), `git status`, test runners, and other file-heavy tools, the extra overhead compounds. The `small_write` benchmark is 60% slower on WSL2, `append_log` is 5.7× slower, and `process_spawn` is 3.9× slower. Those are the exact patterns package managers and build systems repeat thousands of times.
 
 Plugging the numbers in another way: a survey found that 98% of developers admit they waste time waiting for builds. If a Linux-native environment shaves even 10–15 minutes of wait time per day, that adds up to roughly **one to two weeks of engineering time per year** for one person. Across a team, it becomes months or years of lost time.
 
