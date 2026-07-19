@@ -155,14 +155,4 @@ On a Chromebook, Linux is a first-class resident. ChromeOS was built to run a Li
 
 ---
 
-## The practical takeaway
-
-If you want to do dev work on Windows, you can:
-
-1. **Keep projects in the WSL2 filesystem** (not `/mnt/c`), which removes the worst `/mnt/c` 9P bridge.
-2. **Exclude your WSL2 virtual disk from antivirus scanning**.
-3. **Give the WSL2 VM more RAM** in `~/.wslconfig`.
-
-But even with those tweaks, Windows is still running Linux through a Windows-designed translation layer. For a dev machine, it's like buying a sports car and then driving it through a toll booth every block.
-
 A Chromebook, despite the weaker specs, was built without the toll booths.
