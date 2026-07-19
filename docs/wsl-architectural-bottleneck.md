@@ -17,7 +17,9 @@ This is not a matter of preference, configuration, or tooling choice. It is a fi
 
 ## What the data shows
 
-Benchmarks using [io-tester](https://github.com/kodicw/io-tester) — which measures the small, repeated I/O operations that dev tools perform thousands of times per day — show that a lower-spec Linux machine consistently outperforms a higher-spec Windows+WSL2 machine:
+Benchmarks using [io-tester](https://github.com/kodicw/io-tester) — which measures the small, repeated I/O operations that dev tools perform thousands of times per day — show that a lower-spec Linux machine consistently outperforms a higher-spec Windows+WSL2 machine.
+
+**Important:** These benchmarks were run inside WSL2's native ext4 filesystem (`/tmp/`, not `/mnt/c/`). The common advice of "move your files off the Windows drive" was already followed. It was not enough:
 
 | Operation | Impact |
 |---|---|
@@ -104,4 +106,4 @@ Embedded firmware developers report compilation **5–10× slower** on Windows t
 - GCC toolchain performs more efficiently on native Linux
 - Windows Defender scans thousands of header and source files during compilation
 - NTFS handles the high volume of small file I/O operations less efficiently than ext4
-- The recommended fix from the community: compile on Linux, or at minimum move everything into WSL2's native filesystem
+- The community's common advice is to move files into WSL2's native filesystem — but as our `io-tester` benchmarks show, even that is not enough. The tests already ran on WSL2's ext4 partition, and WSL2 still lost. The bottleneck is deeper than filesystem location.
