@@ -56,18 +56,52 @@ This is not "I prefer Linux." This is not "VMs are slow." ChromeOS uses a VM too
 
 Independent benchmarks and articles that confirm the same architectural bottleneck:
 
-- **Chris Horner — Android build times: Linux vs Windows**
-  [chrishorner.codes](https://chrishorner.codes/post/are-builds-faster-on-linux/)
-  Benchmarked Android builds on identical hardware (Ryzen 3950X). Linux full builds were up to **67% faster** than Windows. Incremental builds **21–32% faster**. Even after excluding directories from Windows Defender, Linux remained significantly ahead.
+### Chris Horner — Android build times: Linux vs Windows
 
-- **SEGGER — Embedded Studio build performance**
-  [segger.com](https://www.segger.com/products/development-tools/embedded-studio/technology/build-performance/)
-  SEGGER measured their own IDE's build times across platforms. Linux was up to **70% faster** than Windows. Even Linux *inside a VM on Windows* outperformed native Windows builds.
+[chrishorner.codes/post/windows-vs-linux-build-speed](https://chrishorner.codes/post/windows-vs-linux-build-speed/)
 
-- **LinuxTeck — Windows vs Linux for developers (2026)**
-  [linuxteck.com](https://linuxteck.com/windows-vs-linux-for-developers/)
-  Comprehensive comparison. File-intensive operations (npm install, pip, cargo) measured **40–60% slower** on WSL2 vs native Linux. Covers environment parity, container performance, and CI/CD pipeline behavior.
+Tested on identical hardware (AMD Ryzen 3950X, same SSD). Windows Defender exclusions were configured before testing. Linux still won every benchmark.
 
-- **Particle.io community — Firmware compilation speed**
-  [community.particle.io](https://community.particle.io)
-  Developers report embedded firmware builds **5–10× slower** on Windows than Linux on the same hardware. GCC toolchains, antivirus scanning, and NTFS overhead cited as primary causes.
+| Project | Build type | Windows | Linux | Linux advantage |
+|---|---|---:|---:|---|
+| Socket Weather (small) | Full build | ~30s | ~10s | **67% faster** |
+| Socket Weather (small) | Incremental | ~7s | ~5s | **32% faster** |
+| Tivi (large) | Full build | ~44s | ~37s | **16% faster** |
+| Tivi (large) | Incremental | ~9s | ~7s | **21% faster** |
+
+His conclusion: *"It certainly looks like the crown goes to the penguin on this one. This was a genuine surprise to me. I'd always figured after taming Windows Defender, Microsoft's OS wouldn't impose significant penalties."*
+
+### SEGGER — Embedded Studio build performance
+
+[blog.segger.com](https://blog.segger.com/)  (search: "Comparing Performance on Windows, Linux and OS X")
+
+SEGGER benchmarked their own IDE's compilation across platforms. The key finding: **Linux in a VM on Windows was faster than native Windows.**
+
+| Environment | Build time | vs native Linux |
+|---|---:|---|
+| Native Linux | 1:09 | — |
+| Linux in VM on Windows | 1:30 | 30% slower |
+| Native Windows (64-bit) | 1:57 | 70% slower |
+
+On newer hardware (Intel NUC, 4c/8t), the pattern held: Linux built in **27 seconds** what Windows built in **58 seconds**. Even after switching to 64-bit executables (5–20% faster on Windows), Linux remained the clear winner.
+
+### LinuxTeck — Windows vs Linux for developers
+
+[linuxteck.com](https://linuxteck.com/)
+
+Comprehensive 2026 comparison covering file I/O, containers, and environment parity. Key findings:
+
+- File-intensive operations (npm install, pip, cargo, mvn) measured **40–60% slower** on WSL2 vs native Linux on identical hardware
+- Docker containers run natively on Linux with zero overhead; on Windows they run through a Hyper-V VM layer
+- ~96% of production servers run Linux, so developing on Windows introduces environment-specific bugs (path separators, line endings, permissions) that waste debugging time
+
+### Particle.io community — Firmware compilation speed
+
+[community.particle.io](https://community.particle.io)
+
+Embedded firmware developers report compilation **5–10× slower** on Windows than Linux on the same hardware. The causes map directly to the same architectural issues:
+
+- GCC toolchain performs more efficiently on native Linux
+- Windows Defender scans thousands of header and source files during compilation
+- NTFS handles the high volume of small file I/O operations less efficiently than ext4
+- The recommended fix from the community: compile on Linux, or at minimum move everything into WSL2's native filesystem
