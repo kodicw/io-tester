@@ -127,6 +127,9 @@ func main() {
 		{"stat_batch", benchStatBatch},
 		{"symlink_batch", benchSymlinkBatch},
 		{"delete_batch", benchDeleteBatch},
+		{"build_c", benchBuildC},
+		{"build_incremental", benchBuildIncremental},
+		{"process_spawn", benchProcessSpawn},
 	}
 
 	args := os.Args[1:]
@@ -563,6 +566,169 @@ func benchDeleteBatch(dir string) BenchResult {
 		syncDir(dir)
 		return count, 0, time.Since(start)
 	})
+}
+
+// benchBuildC simulates a C/C++ compilation workload.
+func benchBuildC(dir string) BenchResult {
+	fc := readMarkerInt(dir, "files", 500)
+	compiler := findCompiler()
+	if compiler == "" {
+		fmt.Fprintf(os.Stderr, "  ⚠ build_c: no compiler found (set CC or install gcc/clang/tcc)\n")
+		return BenchResult{}
+	}
+
+	// Generate a small C project
+	if err := generateCProject(dir, fc); err != nil {
+		fmt.Fprintf(os.Stderr, "  ⚠ build_c: generate project failed: %v\n", err)
+		return BenchResult{}
+	}
+
+	return runBench(func() (int, int64, time.Duration) {
+		start := time.Now()
+		// Compile each .c to .o
+		objs, err := compileAllC(dir, compiler, fc)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  ⚠ build_c: compile failed: %v\n", err)
+			return 0, 0, time.Since(start)
+		}
+		// Link into a single binary
+		linkErr := linkObjects(dir, compiler, objs)
+		if linkErr != nil {
+			fmt.Fprintf(os.Stderr, "  ⚠ build_c: link failed: %v\n", linkErr)
+			return 0, 0, time.Since(start)
+		}
+		// Count: 1 op = compile + link of one source
+		return fc, 0, time.Since(start)
+	})
+}
+
+// benchBuildIncremental simulates a touch-and-rebuild dev cycle.
+func benchBuildIncremental(dir string) BenchResult {
+	fc := readMarkerInt(dir, "files", 500)
+	compiler := findCompiler()
+	if compiler == "" {
+		fmt.Fprintf(os.Stderr, "  ⚠ build_incremental: no compiler found\n")
+		return BenchResult{}
+	}
+
+	if err := generateCProject(dir, fc); err != nil {
+		return BenchResult{}
+	}
+	// Full build first
+	objs, err := compileAllC(dir, compiler, fc)
+	if err != nil {
+		return BenchResult{}
+	}
+	linkObjects(dir, compiler, objs)
+
+	return runBench(func() (int, int64, time.Duration) {
+		start := time.Now()
+		// Touch a single source file
+		src := filepath.Join(dir, "src", "module_0.c")
+		os.Chtimes(src, time.Now(), time.Now())
+		// Recompile only that file
+		obj := filepath.Join(dir, "obj", "module_0.o")
+		cmd := exec.Command(compiler, "-c", "-O2", "-I", filepath.Join(dir, "include"), src, "-o", obj)
+		if err := cmd.Run(); err != nil {
+			return 0, 0, time.Since(start)
+		}
+		// Relink
+		linkObjects(dir, compiler, objs)
+		return 1, 0, time.Since(start)
+	})
+}
+
+// benchProcessSpawn measures the cost of spawning many short processes.
+func benchProcessSpawn(dir string) BenchResult {
+	fc := readMarkerInt(dir, "files", 5000)
+	return runBench(func() (int, int64, time.Duration) {
+		start := time.Now()
+		count := 0
+		for i := 0; i < fc; i++ {
+			cmd := exec.Command("true")
+			if err := cmd.Run(); err != nil {
+				break
+			}
+			count++
+		}
+		return count, 0, time.Since(start)
+	})
+}
+
+// generateCProject creates a small C project tree under dir.
+func generateCProject(dir string, files int) error {
+	srcDir := filepath.Join(dir, "src")
+	incDir := filepath.Join(dir, "include")
+	objDir := filepath.Join(dir, "obj")
+	os.MkdirAll(srcDir, 0755)
+	os.MkdirAll(incDir, 0755)
+	os.MkdirAll(objDir, 0755)
+
+	// Common header
+	var decls []string
+	for i := 0; i < files; i++ {
+		decls = append(decls, fmt.Sprintf("int module_%d_func(int x);", i))
+	}
+	mainDecls := strings.Join(decls, "\n")
+	os.WriteFile(filepath.Join(incDir, "project.h"), []byte(mainDecls), 0644)
+
+	// Source files
+	for i := 0; i < files; i++ {
+		body := fmt.Sprintf("#include \"project.h\"\n\nint module_%d_func(int x) {\n    return x + %d;\n}\n", i, i)
+		os.WriteFile(filepath.Join(srcDir, fmt.Sprintf("module_%d.c", i)), []byte(body), 0644)
+	}
+	// main.c
+	var calls []string
+	for i := 0; i < files; i++ {
+		calls = append(calls, fmt.Sprintf("    r += module_%d_func(i);", i))
+	}
+	mainCode := fmt.Sprintf("#include <stdio.h>\n#include \"project.h\"\n\nint main(void) {\n    int r = 0;\n    for (int i = 0; i < 100; i++) {\n%s\n    }\n    printf(\"%%d\\n\", r);\n    return 0;\n}\n", strings.Join(calls, "\n"))
+	os.WriteFile(filepath.Join(srcDir, "main.c"), []byte(mainCode), 0644)
+	return nil
+}
+
+// compileAllC compiles all .c files in dir/src to .o in dir/obj.
+func compileAllC(dir, compiler string, files int) ([]string, error) {
+	srcDir := filepath.Join(dir, "src")
+	objDir := filepath.Join(dir, "obj")
+	incDir := filepath.Join(dir, "include")
+	var objs []string
+	for i := 0; i < files; i++ {
+		src := filepath.Join(srcDir, fmt.Sprintf("module_%d.c", i))
+		obj := filepath.Join(objDir, fmt.Sprintf("module_%d.o", i))
+		cmd := exec.Command(compiler, "-c", "-O2", "-I", incDir, src, "-o", obj)
+		if err := cmd.Run(); err != nil {
+			return nil, err
+		}
+		objs = append(objs, obj)
+	}
+	// main.o
+	mainObj := filepath.Join(objDir, "main.o")
+	cmd := exec.Command(compiler, "-c", "-O2", "-I", incDir, filepath.Join(srcDir, "main.c"), "-o", mainObj)
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+	objs = append(objs, mainObj)
+	return objs, nil
+}
+
+func linkObjects(dir, compiler string, objs []string) error {
+	out := filepath.Join(dir, "app")
+	args := append([]string{"-o", out}, objs...)
+	cmd := exec.Command(compiler, args...)
+	return cmd.Run()
+}
+
+func findCompiler() string {
+	if cc := os.Getenv("CC"); cc != "" {
+		return cc
+	}
+	for _, name := range []string{"cc", "gcc", "clang", "tcc"} {
+		if _, err := exec.LookPath(name); err == nil {
+			return name
+		}
+	}
+	return ""
 }
 
 // ── Helpers ───────────────────────────────────────────────────

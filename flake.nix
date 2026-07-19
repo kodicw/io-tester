@@ -28,11 +28,14 @@
 
           postInstall = ''
             wrapProgram $out/bin/io-tester \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fastfetch ]}
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fastfetch pkgs.tinycc ]}
           '';
 
+          # Allow the build to use a user-supplied compiler (CC) but provide a
+          # lightweight default (tcc) so the build_* benchmarks run out of the box.
+
           meta = with pkgs.lib; {
-            description = "Filesystem I/O benchmark for dev workloads (small files)";
+            description = "Dev-workload performance benchmark: filesystem I/O, compilation, and process overhead";
             homepage = "https://github.com/charles/io-tester";
             license = licenses.mit;
             platforms = platforms.unix;

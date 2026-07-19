@@ -1,7 +1,8 @@
 # io-tester
 
-Filesystem I/O benchmarks for **dev workloads** — specifically many small
-file operations typical of compilers, package managers, git, and build tools.
+Dev-workload performance benchmark. Measures filesystem I/O, compilation-like
+workloads, and process overhead — the patterns that dominate actual dev work
+(compilers, package managers, git, build systems).
 
 ## Quick start
 
@@ -18,6 +19,21 @@ nix run . -- delete_batch
 # Run with custom parameters
 nix run . -- --files=20000 --size=64 --workers=8
 nix run . -- deep_tree --files=5000 --depth=8
+```
+
+## Compiler used for build benchmarks
+
+The `build_c` and `build_incremental` benchmarks pick a compiler in this order:
+
+1. `CC` environment variable
+2. `cc`, `gcc`, `clang`, `tcc` in your `PATH`
+
+The Nix wrapper provides `tcc` by default so the benchmarks run out of the box.
+Use your own compiler for more realistic numbers:
+
+```bash
+CC=gcc nix run . -- build_c --files=200
+CC=clang nix run . -- build_incremental --files=500
 ```
 
 ## External tools (also available)
@@ -62,6 +78,9 @@ nix run .#all-tools
 | `stat_batch`      | Stat many files                            |
 | `symlink_batch`   | Create + resolve many symlinks             |
 | `delete_batch`    | Bulk delete files                          |
+| `build_c`         | Compile a simulated C project              |
+| `build_incremental`| Touch one file and rebuild                |
+| `process_spawn`   | Spawn many short processes                 |
 
 ## System info & styling
 
