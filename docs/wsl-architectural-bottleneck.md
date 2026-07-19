@@ -49,3 +49,25 @@ The translation itself is not the problem. The problem is that Windows is a slow
 ## The bottom line
 
 This is not "I prefer Linux." This is not "VMs are slow." ChromeOS uses a VM too, and it is faster. WINE uses a translation layer too, and it is faster. The problem is specifically that WSL2 forces every I/O operation down through a Windows kernel and NTFS filesystem. That adds a measurable, consistent tax to every file read, write, stat, and process spawn a developer performs. It compounds across thousands of operations per hour into minutes of lost time per day and weeks per year. It is a structural limitation of running Linux on top of a Windows host, and it cannot be configured away.
+
+---
+
+## Further reading
+
+Independent benchmarks and articles that confirm the same architectural bottleneck:
+
+- **Chris Horner — Android build times: Linux vs Windows**
+  [chrishorner.codes](https://chrishorner.codes/post/are-builds-faster-on-linux/)
+  Benchmarked Android builds on identical hardware (Ryzen 3950X). Linux full builds were up to **67% faster** than Windows. Incremental builds **21–32% faster**. Even after excluding directories from Windows Defender, Linux remained significantly ahead.
+
+- **SEGGER — Embedded Studio build performance**
+  [segger.com](https://www.segger.com/products/development-tools/embedded-studio/technology/build-performance/)
+  SEGGER measured their own IDE's build times across platforms. Linux was up to **70% faster** than Windows. Even Linux *inside a VM on Windows* outperformed native Windows builds.
+
+- **LinuxTeck — Windows vs Linux for developers (2026)**
+  [linuxteck.com](https://linuxteck.com/windows-vs-linux-for-developers/)
+  Comprehensive comparison. File-intensive operations (npm install, pip, cargo) measured **40–60% slower** on WSL2 vs native Linux. Covers environment parity, container performance, and CI/CD pipeline behavior.
+
+- **Particle.io community — Firmware compilation speed**
+  [community.particle.io](https://community.particle.io)
+  Developers report embedded firmware builds **5–10× slower** on Windows than Linux on the same hardware. GCC toolchains, antivirus scanning, and NTFS overhead cited as primary causes.
