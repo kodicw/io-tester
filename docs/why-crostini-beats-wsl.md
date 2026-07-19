@@ -4,9 +4,13 @@
 
 ## The short version
 
-A **weaker Chromebook** can feel faster for coding than a **more powerful Windows laptop** because the Chromebook lets Linux talk to the hardware almost directly, while Windows forces Linux to cross multiple translation layers.
+A **weaker Chromebook** can feel faster for coding than a **more powerful Windows laptop** because ChromeOS is designed *around* Linux, while Windows *hosts* Linux as an afterthought.
 
-It's not about raw horsepower. It's about how many roadblocks the operating system puts between your code and the disk.
+Both systems use a virtual machine to run Linux. But ChromeOS's VM is a lightweight, Linux-on-Linux design (`crosvm` on KVM), and its storage is a Linux-native filesystem (`btrfs`). Windows's WSL2 VM is a heavier Windows-on-Linux design, and your Linux files live inside a `.vhdx` file sitting on top of Windows NTFS.
+
+So the Chromebook takes the direct route, while Windows makes Linux take the scenic route — through a translation layer on every single file operation.
+
+It's not about raw horsepower. It's about how many roadblocks the operating system puts between your code and the hardware.
 
 ---
 
@@ -21,17 +25,52 @@ It's not about raw horsepower. It's about how many roadblocks the operating syst
 
 On paper, the Windows laptop should crush the Chromebook. It has a faster CPU, more RAM, and better graphics. But dev work isn't a single big task like rendering a video. Dev work is **thousands of tiny tasks** — open a file, read it, write it, check its size, create a process, compile a file, link it, delete it.
 
-For that kind of work, the Chromebook wins because the path is shorter.
+For that kind of work, the Chromebook wins because the path is shorter and purpose-built for Linux.
 
 ---
 
-## The analogy: building a workshop
+## The architecture side-by-side
 
-### Crostini (Chromebook) = a garage attached to your house
+Both Crostini and WSL2 run Linux inside a virtual machine. The difference is *what kind* of VM and *what it sits on top of*.
 
-You have your workbench in the garage. The tools are right there. You grab a screwdriver, use it, put it back. There's a door to the house, but you usually don't need to go through it.
+### ChromeOS (Crostini)
 
-### WSL2 (Windows) = a shipping container on a flatbed truck
+```
+Your Linux app
+  → LXC container (Debian "penguin")
+    → Termina VM (lightweight Linux guest)
+      → crosvm (Rust VMM on KVM)
+        → ChromeOS Linux kernel
+          → btrfs disk image
+            → SSD
+```
+
+`crosvm` is a virtual machine monitor written specifically to run Linux guests on Linux hosts. It uses **paravirtualized devices** (virtio), which means the guest knows it's in a VM and can take shortcuts. ChromeOS has optimized this path end-to-end. The Linux container's storage is a `btrfs` disk image, which is a Linux-native filesystem.
+
+### Windows (WSL2)
+
+```
+Your Linux app
+  → Linux kernel
+    → WSL2 utility VM
+      → Hyper-V hypervisor
+        → Windows kernel
+          → NTFS
+            → .vhdx virtual disk file
+              → SSD
+```
+
+WSL2 runs a full Linux kernel, but it lives inside a utility VM managed by Hyper-V. Your Linux files are stored inside a `.vhdx` virtual disk file, which lives on Windows NTFS. Every time Linux wants to touch a file, the request has to cross the VM boundary and then go through a Windows filesystem.
+
+---
+
+## The analogy: two workshops
+
+### Crostini (Chromebook) = a prefab workshop in the driveway
+
+The workshop is a separate building, but it was built by the same company that built your house. The doors are the right size, the power outlets match, and the tools connect directly. You still have to walk across the driveway, but the path is short and smooth.
+
+### WSL2 (Windows) = a workshop inside a shipping container on a flatbed truck
 
 You have a nicer workshop inside a shipping container. But the container is sitting on a flatbed truck that's driving on Windows roads. Every time you want a tool, you have to:
 
@@ -40,7 +79,7 @@ You have a nicer workshop inside a shipping container. But the container is sitt
 3. The warehouse finds the tool and loads it onto the truck
 4. You finally get the tool
 
-The workshop itself is fine. The tools are fine. But the **journey to get anything done** is longer.
+Both setups have a separate workshop. The Crostini one is just *designed* to be a workshop from the start.
 
 ---
 
@@ -79,23 +118,23 @@ With Crostini, the path is more like:
 ```
 Linux program
   → Linux kernel
-    → btrfs
-      → actual SSD
+    → btrfs disk image
+      → SSD
 ```
 
-Fewer stops means faster trips.
+Both use a VM. Both use a disk image. But Crostini's stack is Linux talking to Linux, while WSL2 is Linux talking to Windows. The Windows path has more translation steps and more flushing.
 
 ### 2. Every process creation pays a tax
 
-A modern dev workflow spawns thousands of short processes: `git`, `npm`, `cargo`, `make`, `tsc`, `eslint`, `prettier`. On WSL2, each one has to wake up the virtual machine, cross the hypervisor, and go back. On Crostini, the process starts almost like it would on native Linux.
+A modern dev workflow spawns thousands of short processes: `git`, `npm`, `cargo`, `make`, `tsc`, `eslint`, `prettier`. On WSL2, each one has to cross the Hyper-V boundary. On Crostini, the process starts inside a container on a Linux guest, which is much closer to native speed.
 
 ### 3. Fsync hurts twice
 
-When a program says "make sure this is really written to disk" (which compilers and databases do constantly), WSL2 has to flush both the virtual disk and the real Windows disk. Crostini only flushes once.
+When a program says "make sure this is really written to disk" (which compilers and databases do constantly), WSL2 has to flush both the virtual disk and the real Windows disk. Crostini only flushes once through its Linux-native stack.
 
 ### 4. Windows doesn't own the filesystem
 
-Windows and Linux have different ideas about file permissions, case sensitivity, and special files. WSL2 has to translate these ideas back and forth. Crostini doesn't — it's just Linux.
+Windows and Linux have different ideas about file permissions, case sensitivity, and special files. WSL2 has to translate these ideas back and forth. Crostini doesn't — the entire stack from the container up to the disk image is Linux.
 
 ---
 
@@ -112,7 +151,7 @@ So every time you:
 
 ...Windows adds a little tax. One tax is fine. A thousand taxes per second makes the whole machine feel sluggish.
 
-On a Chromebook, Linux is a first-class resident. ChromeOS was built to run a Linux container (Crostini) from the start. The storage layer, the process model, and the filesystem were all designed with Linux in mind. That's why a weaker machine can feel snappier for the kind of work developers actually do.
+On a Chromebook, Linux is a first-class resident. ChromeOS was built to run a Linux container (Crostini) from the start. The VM, the storage layer, and the filesystem were all designed with Linux in mind. That's why a weaker machine can feel snappier for the kind of work developers actually do.
 
 ---
 
@@ -124,6 +163,6 @@ If you want to do dev work on Windows, you can:
 2. **Exclude your WSL2 virtual disk from antivirus scanning**.
 3. **Give the WSL2 VM more RAM** in `~/.wslconfig`.
 
-But even with those tweaks, Windows is still running Linux through a translation layer. For a dev machine, it's like buying a sports car and then driving it through a toll booth every block.
+But even with those tweaks, Windows is still running Linux through a Windows-designed translation layer. For a dev machine, it's like buying a sports car and then driving it through a toll booth every block.
 
-A Chromebook, despite the weaker specs, removes the toll booths.
+A Chromebook, despite the weaker specs, was built without the toll booths.
