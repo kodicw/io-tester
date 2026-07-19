@@ -4,13 +4,34 @@
 
 ## The short version
 
-A **weaker Chromebook** can feel faster for coding than a **more powerful Windows laptop** because ChromeOS is designed *around* Linux, while Windows *hosts* Linux on top of Windows.
+This is a comparison of two Linux-on-VM setups.
 
-Both systems use a virtual machine to run Linux. ChromeOS's VM is a lightweight, Linux-on-Linux design (`crosvm` on KVM), and its storage is a Linux-native filesystem (`btrfs`). Windows's WSL2 VM is a Windows-managed design, and your Linux files live inside a `.vhdx` file sitting on top of Windows NTFS.
+**Crostini (ChromeOS)** runs Linux inside a VM called Termina, managed by `crosvm` on top of KVM. Inside the VM, LXD runs a Debian container (`penguin`). The container's storage is a `btrfs` disk image.
 
-The Chromebook takes the direct route. Windows makes Linux take the scenic route — through a translation layer on every single file operation.
+```
+Your Linux app
+  → LXC container (Debian "penguin")
+    → Termina VM
+      → crosvm (KVM)
+        → ChromeOS Linux kernel
+          → btrfs disk image
+            → SSD
+```
 
-It's not about raw horsepower. It's about how many roadblocks the operating system puts between your code and the hardware.
+**WSL2 (Windows)** runs a full Linux kernel inside a utility VM managed by Hyper-V. Your Linux files live inside a `.vhdx` virtual disk file on Windows NTFS.
+
+```
+Your Linux app
+  → Linux kernel
+    → WSL2 utility VM
+      → Hyper-V
+        → Windows kernel
+          → NTFS
+            → .vhdx file
+              → SSD
+```
+
+Both are virtualized. The hardware is not virtualized equally: the Windows machine in this comparison has a faster CPU, more RAM, and better graphics. The measurements below show what happens when both run the same dev-workload benchmarks.
 
 ---
 
@@ -23,9 +44,7 @@ It's not about raw horsepower. It's about how many roadblocks the operating syst
 | Graphics | AMD Radeon 780M | Basic virtual GPU | **Windows** |
 | Storage | SSD with NTFS | SSD with btrfs | Tie |
 
-On paper, the Windows laptop should crush the Chromebook. It has a faster CPU, more RAM, and better graphics. But dev work isn't a single big task like rendering a video. Dev work is **thousands of tiny tasks** — open a file, read it, write it, check its size, create a process, compile a file, link it, delete it.
-
-For that kind of work, the measured path is shorter on the Chromebook.
+The Windows laptop has faster silicon on every axis: CPU, RAM, and GPU. The benchmark numbers below were collected on this hardware. Dev work is not one big task like rendering a video; it is thousands of tiny tasks — open a file, read it, write it, check its size, create a process, compile a file, link it, delete it.
 
 ---
 
@@ -94,7 +113,7 @@ Both setups have a separate workshop. The Crostini one is just *designed* to be 
 | `process_spawn` | Running lots of short commands | 282/sec | 1,093/sec | Chromebook **4× faster** |
 | `build_c` | Compiling a small C project | 24.7/sec | 31.5/sec | Chromebook **28% faster** |
 
-The Windows machine has a CPU that is roughly **twice as fast** on paper. The benchmark numbers above show it is slower on every measured dev task. Big, single jobs like gaming or video rendering — which don't cross the WSL2 boundary thousands of times — are the workloads where the faster hardware would likely show its advantage.
+The Windows machine has a CPU that is roughly **twice as fast** on paper. The benchmark numbers above show it is slower on every measured dev task.
 
 ---
 
