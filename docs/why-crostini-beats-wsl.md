@@ -177,17 +177,23 @@ A faster NVMe drive can push more bytes per second. But the table above is not m
 
 The benchmark runs fit easily in memory. The issue is not that the machine is running out of RAM. The issue is that every file operation has to be acknowledged, flushed, translated, and checked by multiple layers. More RAM does not remove those layers.
 
-### The traffic analogy
+### The cost vs performance analogy
 
-Imagine two cars on the same road. One is a modest sedan on an empty highway. The other is a sports car stuck in gridlocked traffic. The sports car has more horsepower, better suspension, and a higher top speed. It will still lose the race because the road is the bottleneck, not the car.
+Imagine two restaurants.
 
-In the same way, the Windows hardware is the sports car. The WSL2 stack is the traffic. A faster sports car does not make the traffic move.
+One is a small food truck. The equipment is modest. The menu is simple. You order, and the food is ready in two minutes.
+
+The other is a flagship restaurant with a Michelin-star chef, a $100,000 kitchen, and imported ingredients. You order the same simple dish. It takes forty minutes to arrive because every ingredient has to be signed out of a locked pantry, inspected by a manager, carried through three kitchens, and approved by the front desk before it reaches your plate.
+
+The flagship restaurant spent far more money. The chef is more talented. The equipment is better. But for getting lunch on the table, it is slower. The extra budget did not buy speed. It bought better specs on a spreadsheet.
+
+The Windows hardware is the flagship restaurant. The WSL2 stack is the locked pantry and the three-kitchen journey. The food truck is the Chromebook.
 
 ---
 
 ## What the slowdown can cost in time
 
-A 2022 developer survey found that the average build takes about 20 minutes, and developers spend roughly **57 minutes per day** just waiting for builds to finish. Another 2025 survey reported that teams spend an average of **32 hours per day** running builds across their engineering organizations.
+A 2022 developer survey found that the average build takes about 20 minutes, and developers spend roughly **57 minutes per day** just waiting for builds to finish. Another 2025 survey reported that engineering teams spend a combined average of **32 hours per day** running builds across all their members.
 
 Those are industry averages, not necessarily the numbers in the table above. But they give a sense of scale. Dev work is mostly waiting: waiting for installs, waiting for compiles, waiting for tests, waiting for git. Every second of overhead on those operations multiplies across a day.
 
