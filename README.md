@@ -7,6 +7,7 @@ file operations typical of compilers, package managers, git, and build tools.
 
 ```bash
 # Run all Go-based benchmarks (10 patterns)
+# Shows a system-info header (fastfetch) and styled output (charmbracelet/lipgloss)
 nix run .
 
 # Run a specific benchmark
@@ -61,6 +62,18 @@ nix run .#all-tools
 | `stat_batch`      | Stat many files                            |
 | `symlink_batch`   | Create + resolve many symlinks             |
 | `delete_batch`    | Bulk delete files                          |
+
+## System info & styling
+
+Every run starts with a compact hardware/OS summary from
+[`fastfetch`](https://github.com/fastfetch-cli/fastfetch):
+
+- OS / Host / Kernel
+- CPU / GPU
+- Memory
+- Disk usage
+
+Output is styled with [`charmbracelet/lipgloss`](https://github.com/charmbracelet/lipgloss).
 
 ## Why
 

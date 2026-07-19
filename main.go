@@ -18,12 +18,9 @@ import (
 
 // style helpers for charmbracelet/lipgloss
 var (
-	headerStyle = lipgloss.NewStyle().
+	sectionStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7DF9FF")).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#5A5A5A")).
-		Padding(0, 1)
+		Foreground(lipgloss.Color("#7DF9FF"))
 
 	labelStyle = lipgloss.NewStyle().
 		Bold(true).
@@ -36,19 +33,27 @@ var (
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#4A4A4A")).
 		Padding(0, 1)
+
+	boxTitleStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7DF9FF")).
+		Underline(true)
 )
 
 // printSystemInfo shows hardware & OS details via fastfetch, styled by lipgloss.
 func printSystemInfo() {
 	cmd := exec.Command("fastfetch",
 		"--logo", "none",
-		"--structure", "Title,OS,Host,Kernel,CPU,GPU,Memory,Disk,WM,DE,Shell,Terminal",
+		"--structure", "Title:OS:Host:Kernel:CPU:GPU:Memory:Disk",
 		"--color-keys", "cyan",
 		"--color-title", "white",
 	)
 	out, err := cmd.Output()
 	if err != nil {
-		// fastfetch may not be installed; silently skip or show minimal fallback
+		// fastfetch may not be installed; print a minimal fallback
+		fallback := fmt.Sprintf("Host: %s\nOS:   %s\nArch: %s", mustHostname(), mustOS(), mustArch())
+		fmt.Println(boxStyle.Render(boxTitleStyle.Render("System Info") + "\n" + fallback))
+		fmt.Println()
 		return
 	}
 
@@ -60,7 +65,8 @@ func printSystemInfo() {
 		}
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
-			rows = append(rows, valueStyle.Render(line))
+			// Title line (e.g., "user@hostname") gets its own emphasis
+			rows = append(rows, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7DF9FF")).Render(line))
 			continue
 		}
 		label := labelStyle.Render(strings.TrimSpace(parts[0]) + ":")
@@ -69,9 +75,39 @@ func printSystemInfo() {
 	}
 
 	body := strings.Join(rows, "\n")
-	title := headerStyle.Render("System Info")
+	title := boxTitleStyle.Render("System Info")
 	fmt.Println(boxStyle.Render(title + "\n" + body))
 	fmt.Println()
+}
+
+func mustHostname() string {
+	h, err := os.Hostname()
+	if err != nil {
+		return "unknown"
+	}
+	return h
+}
+
+func mustOS() string {
+	if name := os.Getenv("PRETTY_NAME"); name != "" {
+		return name
+	}
+	b, _ := os.ReadFile("/etc/os-release")
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "PRETTY_NAME=") {
+			return strings.Trim(strings.TrimPrefix(line, "PRETTY_NAME="), `"`)
+		}
+	}
+	return "unknown"
+}
+
+func mustArch() string {
+	cmd := exec.Command("uname", "-m")
+	out, err := cmd.Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func main() {
@@ -160,7 +196,7 @@ func main() {
 
 	writeMarkers(dir)
 
-	fmt.Printf("╔═══ io-tester — dev I/O benchmarks ═══╗\n")
+	fmt.Println(sectionStyle.Render("io-tester — dev I/O benchmarks"))
 	fmt.Printf("  files: %d  size: %dB  workers: %d  depth: %d\n", fileCount, fileSize, workers, depth)
 	fmt.Printf("  workdir: %s\n\n", dir)
 
@@ -202,7 +238,7 @@ func main() {
 		return results[i].result.OpsPerSec > results[j].result.OpsPerSec
 	})
 
-	fmt.Println("╔═══ Results (sorted by ops/sec) ═══╗")
+	fmt.Println(sectionStyle.Render("Results (sorted by ops/sec)"))
 	fmt.Printf("%-20s %10s %12s %12s %12s\n", "Benchmark", "Ops", "Ops/s", "MB/s", "Avg Lat")
 	fmt.Println(strings.Repeat("─", 70))
 	for _, r := range results {

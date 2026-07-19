@@ -19,7 +19,7 @@
           pname = "io-tester";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          vendorHash = "sha256-Wn8K/t9e7zoLPyW4JInLGiT7m3yp3ZlY5K5JiYz8sCQ=";
 
           nativeBuildInputs = [ pkgs.makeWrapper ];
           buildInputs = [ pkgs.fastfetch ];
