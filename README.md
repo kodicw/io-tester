@@ -144,3 +144,7 @@ Dev tools (npm install, git checkout, cargo build, tsc --watch)
 create thousands of tiny files. Traditional I/O benchmarks measure
 sequential throughput (big file R/W). io-tester focuses on the
 **metadata-intensive, small-file patterns** that dominate dev workflows.
+
+See [`docs/why-crostini-beats-wsl.md`](docs/why-crostini-beats-wsl.md) for a
+human-friendly explanation of why a lower-spec Chromebook can outperform a
+more powerful Windows laptop for real dev work.
